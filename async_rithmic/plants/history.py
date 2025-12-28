@@ -32,7 +32,8 @@ class HistoryPlant(BasePlant):
         return int(dt.timestamp())
 
     async def _on_historical_time_bar(self, data):
-        key = f"{data['symbol']}_{data['type']}"
+        # FIX: Include period in key to avoid collision when fetching multiple timeframes concurrently
+        key = f"{data['symbol']}_{data['type']}_{data.get('period', '1')}"
         self.historical_time_bar_data[key].append(data)
 
     async def _on_historical_tick(self, data):
@@ -115,7 +116,10 @@ class HistoryPlant(BasePlant):
 
         # Wait until all the historical data has been fetched before returning it
         if wait:
-            key = f"{symbol}_{bar_type}"
+            # FIX: Include period in key to match storage key in _on_historical_time_bar
+            # Response 'period' field is in seconds: MINUTE_BAR periods * 60
+            period_seconds = bar_type_periods * 60 if bar_type == TimeBarType.MINUTE_BAR else bar_type_periods
+            key = f"{symbol}_{bar_type}_{period_seconds}"
 
             try:
                 await asyncio.wait_for(self.historical_time_bar_event.wait(), 5.0)
